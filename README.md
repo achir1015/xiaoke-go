@@ -15,10 +15,11 @@
 | MacBook Pro（Intel） | `XiaokeGo-版本-mac-x64.dmg` |
 | MacBook Pro（Apple 晶片 M1～） | `XiaokeGo-版本-mac-arm64.dmg` |
 | Android 手機 | `XiaokeGo-版本-android.apk` |
+| iPad／iPhone | 用 Safari 開 [安裝頁](https://achir1015.github.io/xiaoke-go/ios/) 按「安裝」（限已登記的裝置） |
 
 Mac 第一次開啟：把程式拖進「應用程式」後，在程式上按右鍵 →「打開」→ 再按「打開」（程式沒有 Apple 公證，只需要第一次這樣做）。
 
-iPhone／iPad 與線上版會陸續推出。
+線上版（網頁）會接著推出。
 
 ## 功能
 
