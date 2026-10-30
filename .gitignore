@@ -1,0 +1,16 @@
+node_modules/
+dist/
+e2e/out/
+__pycache__/
+*.log
+assets/portraits/_sheet.html
+engine/bin/
+engine/bin-compat/
+engine/models/
+mobile/www/
+android/build/
+android/local.properties
+android/*.jks
+ios/web/
+ios/*.xcodeproj/
+ios/build/

@@ -1,0 +1,114 @@
+/* ==================== 圍棋專用樣式（接在 style.css 之後） ==================== */
+.hero-icon { width: 96px; height: 96px; filter: drop-shadow(0 8px 18px rgba(0,0,0,.5)); }
+.engine-status { margin: 4px 0 0 !important; color: #b6ffcf; }
+.about-icon { width: 72px; height: 72px; }
+.mode-grid .mode-card label { margin-top: 2px; }
+.seg .segbtn { padding: 6px 4px; font-size: 14px; }
+/* 玩家卡片 */
+.pchip.stone-b, .pchip.stone-w { font-size: 0; }
+.pchip.stone-b { background: radial-gradient(circle at 35% 30%, #707078, #18181c 55%, #050506) !important; box-shadow: 0 0 0 2px #000 !important; }
+.pchip.stone-w { background: radial-gradient(circle at 35% 30%, #fff, #ebe8df 60%, #bdb8aa) !important; box-shadow: 0 0 0 2px #888 !important; }
+.pmeta { display: flex; gap: 10px; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.pmeta .pcaps { display: inline; margin: 0; color: #e8d5a8; }
+.pmeta .pclock { font-size: 13px; }
+.padv-change { padding: 0 4px; margin-left: auto; }
+.player.white .pname { color: #fff; }
+/* 小勝率條 */
+.wr-mini { background: #1d140c; border: 1px solid var(--line); border-radius: 10px; padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; }
+.wr-bar { height: 12px; border-radius: 999px; background: #f2efe6; overflow: hidden; box-shadow: inset 0 0 0 1px #000; }
+.wr-b { height: 100%; width: 50%; background: linear-gradient(#3a3a40, #0b0b0d); transition: width .5s; }
+.wr-text { display: flex; justify-content: space-between; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.wr-lead { color: var(--gold); }
+/* 終局數子 */
+.score-panel { background: #2a2010; border: 2px solid var(--gold); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 0 16px rgba(232,184,74,.35); }
+.sp-title { font-weight: 800; color: var(--gold); }
+.sp-line { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.sp-res { font-size: 20px; font-weight: 800; color: #ffe9a8; text-align: center; }
+.sp-btns { display: flex; gap: 6px; }
+.sp-btns button { flex: 1; padding: 7px 4px; }
+/* 棋譜 */
+.movelist { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 3px; font-size: 13px; }
+.movelist .mv { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px 2px 3px; border-radius: 999px; background: #2a1d12; letter-spacing: 0; }
+.movelist .mv i { font-style: normal; min-width: 20px; height: 18px; border-radius: 999px; display: inline-grid; place-items: center; font-size: 11px; padding: 0 4px; }
+.movelist .mv.b i { background: #111; color: #fff; box-shadow: 0 0 0 1px #555; }
+.movelist .mv.w i { background: #f4f1e8; color: #111; }
+.movelist .mv.cur { background: #7a4a1c; }
+.actions .wide { grid-column: span 2; }
+.replay-only { grid-template-columns: repeat(3, 1fr); }
+#rpNums.on, #btnEstimate.on { border-color: var(--gold); color: var(--gold); }
+.hover-info { position: absolute; right: 12px; bottom: 8px; font: 700 15px Consolas, monospace; color: var(--gold); pointer-events: none; text-shadow: 0 1px 4px #000; }
+.pop.cap { color: #ffd166; font-size: 48px; }
+.pop.atari { color: #ff5a4e; font-size: 52px; }
+.pop.white { color: #fff; }
+.pop.black { color: #222; -webkit-text-stroke: 1.5px #eee; }
+.res-big { font-size: 22px; font-weight: 800; color: #ffe9a8; }
+/* 對陣畫面 */
+.vs-side.b .vs-main { box-shadow: 0 0 0 4px #111, 0 0 0 7px #888, 0 10px 30px rgba(0,0,0,.6); }
+.vs-side.w .vs-main { box-shadow: 0 0 0 4px #f4f1e8, 0 10px 30px rgba(0,0,0,.6); }
+.vs-mid { display: flex; flex-direction: column; align-items: center; }
+.vs-cfg { font-size: 14px; font-style: normal; color: var(--muted); text-shadow: none; font-weight: 600; margin-top: 6px; white-space: nowrap; }
+/* 數據分頁 */
+.datapanel { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; overflow-y: auto; height: 100%; min-height: 0; }
+.dp-bar { display: flex; align-items: center; gap: 8px; }
+.dp-side { display: flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; font-size: 16px; }
+.dp-track { flex: 1; height: 18px; border-radius: 999px; background: #f2efe6; overflow: hidden; box-shadow: inset 0 0 0 1px #000; }
+.dp-fill { height: 100%; width: 50%; background: linear-gradient(#3a3a40, #0b0b0d); transition: width .5s; }
+.stone-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.stone-dot.b { background: radial-gradient(circle at 35% 30%, #777, #111 60%); box-shadow: 0 0 0 1px #000; }
+.stone-dot.w { background: radial-gradient(circle at 35% 30%, #fff, #ddd 70%); box-shadow: 0 0 0 1px #777; }
+.dp-lead { text-align: center; font-size: 18px; font-weight: 800; color: var(--gold); }
+.dp-engine { text-align: center; }
+.dp-graph-wrap { background: #1d140c; border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.dp-graph { width: 100%; height: 150px; display: block; cursor: pointer; }
+.dp-legend { padding: 0 4px 2px; }
+.dp-toggles { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+.dp-title { font-weight: 700; color: var(--gold); font-size: 14px; border-bottom: 1px solid var(--line); padding-bottom: 3px; margin-top: 2px; }
+.dp-table-wrap { max-height: 280px; overflow: auto; flex: none; }
+.dp-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.dp-table th { color: var(--muted); font-weight: 600; text-align: left; padding: 3px 4px; position: sticky; top: 0; background: var(--panel); }
+.dp-table td { padding: 4px; border-top: 1px solid #3a2a1a; cursor: pointer; }
+.dp-table tr.best td { color: #7ee0ff; font-weight: 700; }
+.dp-table tr:hover td { background: #3a2a18; }
+.dp-book { color: #e8d5a8; line-height: 1.5; }
+.dp-mistakes { display: flex; flex-direction: column; gap: 4px; }
+.mk-item { display: flex; align-items: center; gap: 8px; text-align: left; padding: 5px 8px; font-size: 13.5px; }
+.mk-item b { margin-left: auto; color: #ff8a80; }
+/* 軍師 */
+.adv-who { min-width: 0; }
+.adv-change { padding: 0 2px; }
+.pf-advgrid .pf-grid { max-height: 60vh; }
+/* 棋譜庫 */
+.rec-search { width: 200px; }
+.rec-more { padding: 10px; text-align: center; }
+/* 教學（圍棋小棋盤） */
+.gb-bg { fill: #e6bb7a; stroke: #8a5a2a; stroke-width: 4; }
+.gb-grid line { stroke: #2e1b0c; stroke-width: 1.8; }
+.gb-star { fill: #2e1b0c; }
+.gb-coord { font: 700 14px sans-serif; fill: rgba(60,34,12,.75); text-anchor: middle; }
+.gs { transition: opacity .4s; }
+.gs.drop > circle:last-child { animation: gscale .32s cubic-bezier(.3,1.5,.5,1); transform-box: fill-box; transform-origin: center; }
+@keyframes gscale { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.gs.gone { opacity: 0; }
+.gs-shadow { fill: rgba(0,0,0,.3); }
+.gs-b { stroke: #000; stroke-width: 1; }
+.gs-w { stroke: #9a9488; stroke-width: 1; }
+.gm-lib { fill: #2ecc71; stroke: #0b4; stroke-width: 2; opacity: .9; }
+.gm-text { font-weight: 900; text-anchor: middle; fill: #c0181c; paint-order: stroke; stroke: rgba(255,240,210,.85); stroke-width: 3px; }
+.gm-text.light { fill: #fff; stroke: rgba(0,0,0,.6); }
+.gm-star { fill: rgba(232,184,74,.35); stroke: #e8b84a; stroke-width: 2; }
+.gz-b { fill: #111; opacity: .8; }
+.gz-w { fill: #fff; stroke: #777; stroke-width: 1; }
+.gm-last { fill: none; stroke: #d22; stroke-width: 3; }
+.gm-last.light { stroke: #fff; }
+/* 功能說明 */
+.help { overflow: hidden; }
+.help-intro { margin: 0; }
+.help-list { flex: 1; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; align-content: start; padding-bottom: 12px; }
+.help-card { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; transition: box-shadow .3s, border-color .3s; }
+.help-card.reading { border-color: var(--gold); box-shadow: 0 0 18px rgba(232,184,74,.45); }
+.help-card p { margin: 6px 0; line-height: 1.65; font-size: 15px; }
+.help-title { display: flex; align-items: center; gap: 10px; }
+.help-title h3 { margin: 0; color: var(--gold); flex: 1; }
+.help-icon { font-size: 26px; }
+.help-say { padding: 4px 10px; font-size: 13px; }
+body.mode-aivai #btnPass, body.mode-aivai #btnHint, body.mode-aivai #btnUndo, body.mode-aivai #btnResign { display: none; }
