@@ -1,7 +1,7 @@
 {
   "name": "xiaoke-go",
   "productName": "小柯機器人圍棋競賽",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "小柯機器人圍棋競賽：3D 圍棋（9／13／19 路；真人對 AI、真人對真人〔本機或遠端＋語音〕、AI 對 AI；內建 KataGo 引擎即時勝率、AI 軍師代打、棋譜庫與覆盤速算、動畫語音教學、背景音樂、自動更新）",
   "main": "src/main/main.js",
   "author": {

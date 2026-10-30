@@ -40,7 +40,7 @@ try {
   await waitFor(() => window.__xkg.game.ply === 2 && !window.__xkg.aiThinking, null, 60000);
   check('大師（深度網路）回應', /搜尋/.test(await win.evaluate(() => document.querySelector('#aiInfo').textContent)), await win.evaluate(() => document.querySelector('#aiInfo').textContent));
   const upd = await win.evaluate(() => window.xk.update.check().then((r) => r.flavor + ':' + r.current).catch((e) => 'ERR ' + e.message));
-  check('更新檢查可執行', /nsis|portable|other|ERR/.test(upd), upd);
+  check('更新檢查可執行', /nsis|portable|mac|other|ERR/.test(upd), upd);
 } catch (e) { fail++; console.log('✘ 例外：', e.message); }
 check('沒有頁面錯誤', errors.length === 0, errors.join('\n'));
 console.log(`\n通過 ${pass}，失敗 ${fail}`);

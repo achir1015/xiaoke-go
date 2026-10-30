@@ -12,8 +12,12 @@
 | --- | --- |
 | Windows 11（安裝版） | `XiaokeGo-版本-win-x64.exe` |
 | Windows 11（免安裝） | `XiaokeGo-版本-win-x64-portable.exe` |
+| MacBook Pro（Intel） | `XiaokeGo-版本-mac-x64.dmg` |
+| MacBook Pro（Apple 晶片 M1～） | `XiaokeGo-版本-mac-arm64.dmg` |
 
-MacBook Pro、Android、iPhone／iPad 與線上版會陸續推出。
+Mac 第一次開啟：把程式拖進「應用程式」後，在程式上按右鍵 →「打開」→ 再按「打開」（程式沒有 Apple 公證，只需要第一次這樣做）。
+
+Android、iPhone／iPad 與線上版會陸續推出。
 
 ## 功能
 

@@ -33,9 +33,16 @@ async function download(url, file) {
   }
 }
 
-const list = BIN[process.platform];
-if (!list) { console.log(`這個平台（${process.platform}）沒有內建 KataGo，程式會使用小柯 JS 引擎。`); process.exit(0); }
 fs.mkdirSync(path.join(ENGINE, 'models'), { recursive: true });
+if (process.platform === 'darwin') {
+  // macOS 沒有官方執行檔：從原始碼編譯（arch 可用 KATAGO_ARCH=x86_64／arm64 指定，預設本機）
+  const arch = process.env.KATAGO_ARCH || (process.arch === 'arm64' ? 'arm64' : 'x86_64');
+  const have = fs.existsSync(path.join(ENGINE, 'bin', 'katago')) && execFileSync('file', [path.join(ENGINE, 'bin', 'katago')]).toString().includes(arch);
+  if (have) console.log(`已存在 bin（${arch}）`);
+  else { fs.rmSync(path.join(ENGINE, 'bin'), { recursive: true, force: true }); fs.rmSync(path.join(ENGINE, 'bin-compat'), { recursive: true, force: true }); execFileSync('bash', [path.join(ROOT, 'scripts', 'build-katago-mac.sh'), arch], { stdio: 'inherit' }); }
+}
+const list = BIN[process.platform] || [];
+if (!list.length && process.platform !== 'darwin') { console.log(`這個平台（${process.platform}）沒有內建 KataGo，程式會使用小柯 JS 引擎。`); process.exit(0); }
 for (const [dir, zip] of list) {
   const out = path.join(ENGINE, dir);
   if (fs.existsSync(path.join(out, 'katago.exe'))) { console.log(`已存在 ${dir}`); continue; }
