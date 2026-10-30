@@ -1,9 +1,9 @@
-name: 建置安裝檔（Windows / macOS）
+name: 建置安裝檔（Windows / macOS / Android）
 
 on:
   push:
     branches: [main]
-    paths: ['package.json', 'src/**', 'assets/**', 'build/**', 'scripts/fetch-engine.mjs', 'scripts/build-katago-mac.sh', '.github/workflows/build.yml']
+    paths: ['package.json', 'src/**', 'assets/**', 'build/**', 'scripts/fetch-engine.mjs', 'scripts/build-katago-mac.sh', 'scripts/build-mobile.mjs', 'android/**', 'mobile/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
 permissions:
@@ -60,8 +60,38 @@ jobs:
             dist/*.dmg
           if-no-files-found: error
 
+  android:
+    name: Android（直立手機版 APK）
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: 建置 APK（需要 repo Secret：ANDROID_KEYSTORE_B64；沒有就略過，改由本機建置上傳）
+        run: |
+          mkdir -p out
+          if [ -z "$KS" ]; then echo "::warning::沒有 ANDROID_KEYSTORE_B64，略過 APK"; exit 0; fi
+          echo "$KS" | base64 -d > android/xiaokego.jks
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          VER=$(node -p "require('./package.json').version")
+          python3 android/build.py
+          mv android/build/XiaokeGo.apk "out/XiaokeGo-$VER-android.apk"
+          rm -f android/xiaokego.jks
+          ls -lh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-android
+          path: out/*.apk
+          if-no-files-found: ignore
+
   release:
-    needs: [build]
+    needs: [build, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

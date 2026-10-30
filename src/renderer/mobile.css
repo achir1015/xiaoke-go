@@ -51,27 +51,29 @@ html.mobile .vol-pop.right { left: auto; right: 0; }
 
 html.mobile .game-body { display: flex; flex-direction: column; padding-bottom: 52px; min-height: 0; }
 html.mobile .game-body > .left { display: contents; }
-html.mobile #pBlack { order: 1; }
-html.mobile .board-wrap { order: 2; flex: 1; min-height: 260px; }
-html.mobile #pRed { order: 3; }
+/* 圍棋：上面兩位棋手一排、小勝率條、棋盤最大、按鈕一排 */
+html.mobile #players { order: 1; display: flex; gap: 6px; padding: 6px 8px 0; }
+html.mobile #players .player { flex: 1 1 0; min-width: 0; padding: 5px 6px; gap: 6px; border-width: 2px; }
+html.mobile .pportrait, html.mobile .pportrait .pimg { width: 40px; height: 50px; }
+html.mobile .pportrait .pchip { width: 18px; height: 18px; left: -4px; bottom: -4px; }
+html.mobile .pname { font-size: 13px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile .ptag { display: none; }
+html.mobile .pmeta { font-size: 11px; gap: 6px; }
+html.mobile .pmeta .pclock { font-size: 11px; }
+html.mobile .padv { font-size: 10.5px; margin-top: 1px; }
+html.mobile .padv img { width: 16px; height: 20px; }
+html.mobile .pbadge { font-size: 10px; top: -6px; }
+html.mobile #wrMini { order: 2; margin: 6px 8px 0; padding: 4px 8px; }
+html.mobile #scorePanel { order: 2; margin: 6px 8px 0; }
+html.mobile .sp-btns button { font-size: 14px; }
+html.mobile .board-wrap { order: 3; flex: 1; min-height: 260px; }
+html.mobile .hover-info { display: none; }
 html.mobile .actions { order: 4; display: flex; overflow-x: auto; gap: 6px; padding: 6px 8px; grid-template-columns: none; scrollbar-width: none; }
 html.mobile .actions::-webkit-scrollbar { display: none; }
 html.mobile .actions button { flex: 0 0 auto; padding: 7px 10px; font-size: 14px; }
 html.mobile .actions.replay-only { display: none; }
 html.mobile .mode-replay .actions.replay-only { display: flex; }
 html.mobile .mode-replay .actions.play-only { display: none; }
-html.mobile .player { margin: 4px 8px; padding: 5px 8px; gap: 8px; border-width: 2px; }
-html.mobile .pportrait, html.mobile .pportrait .pimg { width: 38px; height: 48px; }
-html.mobile .pportrait .pchip { width: 20px; height: 20px; font-size: 12px; left: -4px; bottom: -4px; }
-html.mobile .pbadge { font-size: 10px; top: -6px; padding: 1px 5px; }
-html.mobile .pinfo { display: grid; grid-template-columns: auto auto; gap: 0 8px; align-items: center; }
-html.mobile .pname { font-size: 14px; }
-html.mobile .ptag { font-size: 11px; }
-html.mobile .pclock { font-size: 12px; }
-html.mobile .padv { margin: 0; font-size: 11px; }
-html.mobile .padv img { width: 16px; height: 20px; }
-html.mobile .pcaps { grid-column: 1 / -1; margin: 0; }
-html.mobile .pcap { width: 17px; height: 17px; font-size: 11px; }
 html.mobile .board-tip { display: none; }
 html.mobile .pop { font-size: 40px; }
 html.mobile .pop.proxy { font-size: 26px; white-space: nowrap; }

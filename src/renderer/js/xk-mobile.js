@@ -1,45 +1,49 @@
-// 手機版（Android、iPhone／iPad）與網頁版的 window.xk：取代桌面版主程序提供的功能。
+// 手機／平板版（Android、iPhone、iPad）與網頁版的 window.xk：取代桌面版主程序提供的功能。
 // 桌面版有 preload 提供 window.xk，這個檔案就什麼都不做。
-// Android App 由原生程式提供 window.XiaokeAndroid（語音、存檔、更新、開網址）；
-// iPhone／iPad App 提供 window.XiaokeIOS＋messageHandlers.xkc（存檔分享、開網址）；在一般瀏覽器測試時改用網頁功能。
+// Android App 提供 window.XiaokeAndroid（存檔、檢查更新與安裝、開網址）；
+// iPhone／iPad App 提供 window.XiaokeIOS＋webkit.messageHandlers.xkg（存檔分享、開網址、系統記錄）；在一般瀏覽器測試時改用網頁功能。
 (function () {
   'use strict';
   if (window.xk) return;
   var A = window.XiaokeAndroid || null;
   var isAndroid = !!A;
-  var isIOS = !!(window.XiaokeIOS && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.xkc);
-  function ios(cmd, args) { return window.webkit.messageHandlers.xkc.postMessage({ cmd: cmd, args: args || [] }); }
+  var isIOS = !!(window.XiaokeIOS && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.xkg);
+  function ios(cmd, args) { return window.webkit.messageHandlers.xkg.postMessage({ cmd: cmd, args: args || [] }); }
+  // 手機（Android、iPhone）直立版面：html.mobile；iPad 的 WebView 用電腦版 UA（Macintosh），走電腦版版面＋html.touch
   var ua = navigator.userAgent || '';
-  // iPad 的 WebView 用電腦版 UA（Macintosh），所以 iPad 走電腦版版面（橫放），只有 iPhone 用手機直立版面
   var mobile = isAndroid || /Android|iPhone|Mobile/i.test(ua) || /[?&]mobile=1/.test(location.search);
   var touch = mobile || isIOS || navigator.maxTouchPoints > 1;
   if (mobile) document.documentElement.classList.add('mobile');
   else if (touch) document.documentElement.classList.add('touch');
   document.documentElement.classList.add(isAndroid ? 'android' : isIOS ? 'ios' : 'webapp');
 
+  var REPO = 'achir1015/xiaoke-go';
+  var IOS_INSTALL_PAGE = 'https://achir1015.github.io/xiaoke-go/ios/';
   function parse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function appVersion() {
     if (isAndroid) { var i = parse(A.appInfo()); if (i && i.version) return i.version; }
-    return window.XKC_VERSION || '0';
+    return window.XKG_VERSION || '0';
   }
 
   // ---------------- 設定（localStorage） ----------------
-  var SKEY = 'xkc.settings';
+  var SKEY = 'xkg.settings';
   function defaults() {
     return {
-      playerName: '棋友', level: 2, aiSide: 'red', learnFromGames: true,
+      playerName: '棋友', profile: null, voiceCall: true,
+      game: { size: mobile ? 9 : 19, rules: 'chinese', handicap: 0, color: 'black', level: 2, showWinrate: true, hints: true },
+      aivai: { levels: [3, 3], size: 9, speed: 'normal' },
       server: { mode: 'public', host: '', port: 9000, path: '/', key: 'peerjs', secure: false },
       stun: 'stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478',
       turn: { urls: '', username: '', credential: '' },
       music: { volume: 0.45, shuffle: false, autoplay: true, track: 0, enabled: true },
-      sfx: true, view: 'top', homeKind: 'full', autoUpdate: true,
+      sfx: true, sfxVolume: 0.8, announce: true, view: mobile ? 'top' : 'tilt', autoUpdate: true, learnFromGames: true, proxyLevel: 3,
       advisor: { apiKey: '', model: 'claude-opus-5-5', effort: 'low' },
     };
   }
   function load() {
     var d = defaults(), raw = parse(localStorage.getItem(SKEY)) || {};
     return Object.assign({}, d, raw, {
+      game: Object.assign({}, d.game, raw.game || {}), aivai: Object.assign({}, d.aivai, raw.aivai || {}),
       server: Object.assign({}, d.server, raw.server || {}), turn: Object.assign({}, d.turn, raw.turn || {}),
       music: Object.assign({}, d.music, raw.music || {}), advisor: Object.assign({}, d.advisor, raw.advisor || {}),
     });
@@ -51,11 +55,11 @@
     s.advisor = { model: settings.advisor.model, effort: settings.advisor.effort, hasKey: !!settings.advisor.apiKey, envKey: false };
     return s;
   }
-  var KEYS = ['playerName', 'level', 'aiSide', 'learnFromGames', 'stun', 'sfx', 'view', 'homeKind', 'autoUpdate', 'aivai', 'aiSideHalf', 'profile', 'proxyLevel', 'sfxVolume', 'guideVoice', 'guideRate'];
+  var KEYS = ['playerName', 'profile', 'voiceCall', 'sfxVolume', 'stun', 'sfx', 'view', 'autoUpdate', 'announce', 'learnFromGames', 'proxyLevel', 'guideVoice', 'guideRate', 'helpVoice', 'panelTab'];
   function setSettings(p) {
     p = p || {};
     KEYS.forEach(function (k) { if (k in p) settings[k] = p[k]; });
-    ['server', 'turn', 'music'].forEach(function (k) { if (p[k]) settings[k] = Object.assign({}, settings[k], p[k]); });
+    ['game', 'aivai', 'server', 'turn', 'music'].forEach(function (k) { if (p[k]) settings[k] = Object.assign({}, settings[k], p[k]); });
     if (p.advisor) {
       if ('apiKey' in p.advisor) settings.advisor.apiKey = String(p.advisor.apiKey || '').trim();
       if (p.advisor.model) settings.advisor.model = String(p.advisor.model);
@@ -70,11 +74,12 @@
   function db() {
     if (dbp) return dbp;
     dbp = new Promise(function (res, rej) {
-      var r = indexedDB.open('xiaoke-chess', 1);
+      var r = indexedDB.open('xiaoke-go', 1);
       r.onupgradeneeded = function () {
         var d = r.result;
         if (!d.objectStoreNames.contains('games')) d.createObjectStore('games', { keyPath: 'id' });
         if (!d.objectStoreNames.contains('music')) d.createObjectStore('music', { keyPath: 'name' });
+        if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
       };
       r.onsuccess = function () { res(r.result); };
       r.onerror = function () { rej(r.error); };
@@ -97,14 +102,15 @@
     return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + '-' + Math.random().toString(16).slice(2, 8);
   }
   function summary(g) {
-    return { id: g.id, date: g.date, mode: g.mode, kind: g.kind || 'full', red: g.red, black: g.black, result: g.result, reason: g.reason, plies: (g.moves || []).length, opening: g.opening || '', source: g.source || '' };
+    return { id: g.id, date: g.date, mode: g.mode, source: g.source, size: g.size, komi: g.komi, rules: g.rules, handicap: g.handicap, black: g.black, white: g.white, result: g.result, plies: (g.moves || []).length, mySide: g.mySide, level: g.level, event: g.event, analyzed: !!(g.analysis && g.analysis.length) };
   }
 
   // ---------------- 選擇檔案（匯入棋譜、加入音樂） ----------------
-  function pickFiles(accept, multiple) {
+  function pickFiles(accept, multiple, folder) {
     return new Promise(function (res) {
       var inp = document.createElement('input');
       inp.type = 'file'; inp.accept = accept; inp.multiple = !!multiple;
+      if (folder) inp.webkitdirectory = true;
       inp.style.display = 'none';
       var done = false;
       inp.onchange = function () { done = true; res([].slice.call(inp.files || [])); inp.remove(); };
@@ -112,12 +118,6 @@
       document.body.appendChild(inp);
       inp.click();
     });
-  }
-  function decodeText(buf) {
-    var t = new TextDecoder('utf-8').decode(buf);
-    if (t.indexOf('�') >= 0) { try { t = new TextDecoder('big5').decode(buf); } catch (e) { /* 不支援 */ } }
-    if (t.indexOf('�') >= 0) { try { t = new TextDecoder('gbk').decode(buf); } catch (e) { /* 不支援 */ } }
-    return t;
   }
 
   // ---------------- 存檔（匯出棋譜） ----------------
@@ -127,7 +127,7 @@
     return btoa(s);
   }
   function saveText(name, text) {
-    var bytes = new TextEncoder().encode('﻿' + text);
+    var bytes = new TextEncoder().encode(/\.sgf$/i.test(name) ? text : '﻿' + text);
     if (isIOS) {
       // 寫到 App 的暫存檔，再開分享選單（儲存到「檔案」、AirDrop、LINE…）
       return ios('begin_save', [name]).then(function (b) {
@@ -138,23 +138,23 @@
       });
     }
     if (isAndroid) {
-      var b = parse(A.beginSave(name));
-      if (!b || b.status !== 'ok') return Promise.reject(new Error((b && b.message) || '無法存檔'));
-      for (var i = 0; i < bytes.length; i += 512 * 1024) A.writeChunk(b.token, b64(bytes.subarray(i, i + 512 * 1024)));
-      var e = parse(A.endSave(b.token));
+      // 存到手機的「下載/小柯圍棋」
+      var sv = parse(A.beginSave(name));
+      if (!sv || sv.status !== 'ok') return Promise.reject(new Error((sv && sv.message) || '無法存檔'));
+      for (var k = 0; k < bytes.length; k += 512 * 1024) A.writeChunk(sv.token, b64(bytes.subarray(k, k + 512 * 1024)));
+      var e = parse(A.endSave(sv.token));
       return Promise.resolve(e && e.path ? e.path : name);
     }
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([bytes], { type: 'text/plain;charset=utf-8' }));
+    a.href = URL.createObjectURL(new Blob([bytes], { type: 'application/x-go-sgf;charset=utf-8' }));
     a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     return Promise.resolve('下載資料夾／' + name);
   }
 
-  // ---------------- 版本更新 ----------------
-  var progressFns = [];
+  // ---------------- 版本更新（Android：下載 APK 安裝；iPhone／iPad：開線上安裝頁，用 Safari 按一下就裝好新版） ----------------
   var updInfo = null;
-  var IOS_INSTALL_PAGE = 'https://achir1015.github.io/xiaoke-chess/ios/';
+  var progressFns = [];
   function cmpVer(a, b) {
     var pa = String(a).replace(/^v/, '').split('.').map(Number), pb = String(b).replace(/^v/, '').split('.').map(Number);
     for (var i = 0; i < 3; i++) { var d = (pa[i] || 0) - (pb[i] || 0); if (d) return d; }
@@ -173,35 +173,31 @@
         }, 0);
       });
     }
-    return fetch('https://api.github.com/repos/achir1015/xiaoke-chess/releases/latest').then(function (r) {
+    var done = function (latest, notes, page, ipa) {
+      updInfo = { current: cur, latest: latest, newer: cmpVer(latest, cur) > 0, notes: notes || '', page: isIOS ? IOS_INSTALL_PAGE : page,
+        asset: ipa ? { name: ipa.name, url: ipa.browser_download_url, size: ipa.size } : null, flavor: isIOS ? 'ios' : 'web', canInstall: false };
+      return updInfo;
+    };
+    return fetch('https://api.github.com/repos/' + REPO + '/releases/latest').then(function (r) {
       if (!r.ok) throw new Error('查詢失敗（' + r.status + '）');
       return r.json();
     }).then(function (j) {
-      var latest = String(j.tag_name || '').replace(/^v/, '');
-      // iPhone／iPad：有 .ipa 就開線上安裝頁（itms-services），在 Safari 按一下就裝好新版
-      var ipa = isIOS && (j.assets || []).filter(function (a) { return /\.ipa$/i.test(a.name); })[0];
-      updInfo = { current: cur, latest: latest, newer: cmpVer(latest, cur) > 0, notes: String(j.body || '').slice(0, 4000), page: ipa ? IOS_INSTALL_PAGE : j.html_url,
-        asset: ipa ? { name: ipa.name, url: ipa.browser_download_url, size: ipa.size } : null, flavor: isIOS ? 'ios' : 'web', canInstall: false };
-      return updInfo;
-    });
-  }
-  function downloadUpdate() {
-    if (!isAndroid || !updInfo || !updInfo.asset) return Promise.reject(new Error('請到 GitHub 下載'));
-    var r = parse(A.installUpdate(updInfo.asset.url, updInfo.latest));
-    if (!r || r.status !== 'ok') return Promise.reject(new Error((r && r.message) || '無法下載'));
-    return new Promise(function (res, rej) {
-      (function poll() {
-        var s = parse(A.updateStatus()) || {};
-        progressFns.forEach(function (f) { f({ got: s.pct || 0, total: 100 }); });
-        if (s.state === 'permission') rej(new Error('請先在設定畫面允許本 App「安裝未知應用程式」，回來後再按一次更新'));
-        else if (s.state === 'error') rej(new Error('下載失敗，請再試一次'));
-        else if (s.state === 'launching') res('android');
-        else setTimeout(poll, 500);
-      })();
+      return done(String(j.tag_name || '').replace(/^v/, ''), String(j.body || '').slice(0, 4000), j.html_url,
+        (j.assets || []).filter(function (a) { return /\.ipa$/i.test(a.name); })[0]);
+    }).catch(function (err) {
+      // GitHub API 每個網路每小時只能查 60 次；被限制時改讀安裝頁的 manifest.plist（裡面有 iPad 版的版本號）
+      return fetch(IOS_INSTALL_PAGE + 'manifest.plist', { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw err;
+        return r.text();
+      }).then(function (t) {
+        var m = /<key>bundle-version<\/key>\s*<string>([^<]+)<\/string>/.exec(t);
+        if (!m) throw err;
+        return done(m[1], '', 'https://github.com/' + REPO + '/releases/latest', null);
+      }).catch(function () { throw err; });
     });
   }
 
-  // ---------------- AI 軍師（Claude，直接從手機連線） ----------------
+  // ---------------- AI 軍師（Claude，直接從 iPad 連線） ----------------
   var deltaFns = [], doneFns = [], active = {};
   function emit(list, d) { list.forEach(function (f) { try { f(d); } catch (e) { console.error(e); } }); }
   // 動態載入：以網頁位置為準（一般 script 的相對路徑會以這個檔案為準，所以用絕對網址）
@@ -249,7 +245,23 @@
     } catch (err) { return { ok: false, error: explain(Anthropic, err) }; }
   }
 
-  // ---------------- 語音（Android 用原生 TTS；網頁用 speechSynthesis） ----------------
+  function downloadUpdate() {
+    if (!isAndroid || !updInfo || !updInfo.asset) return Promise.reject(new Error('請到安裝頁更新'));
+    var r = parse(A.installUpdate(updInfo.asset.url, updInfo.latest));
+    if (!r || r.status !== 'ok') return Promise.reject(new Error((r && r.message) || '無法下載'));
+    return new Promise(function (res, rej) {
+      (function poll() {
+        var st = parse(A.updateStatus()) || {};
+        progressFns.forEach(function (f) { f({ got: st.pct || 0, total: 100 }); });
+        if (st.state === 'permission') rej(new Error('請先在設定畫面允許本 App「安裝未知應用程式」，回來後再按一次更新'));
+        else if (st.state === 'error') rej(new Error('下載失敗，請再試一次'));
+        else if (st.state === 'launching') res('android');
+        else setTimeout(poll, 500);
+      })();
+    });
+  }
+
+  // ---------------- 語音（Android 的 WebView 沒有網頁語音，改用原生文字轉語音） ----------------
   var ttsWait = {}, ttsSeq = 0;
   window.__xkTtsDone = function (id) { var f = ttsWait[id]; if (f) { delete ttsWait[id]; f(); } };
   var tts = isAndroid ? {
@@ -269,7 +281,7 @@
   function openUrl(url) { if (isAndroid) A.openUrl(url); else if (isIOS) ios('open_url', [url]); else window.open(url, '_blank'); }
 
   // ---------------- 手機返回鍵（Android 原生呼叫） ----------------
-  window.__xkBack = function () { return window.__xkcBack ? !!window.__xkcBack() : false; };
+  window.__xkBack = function () { return window.__xkgBack ? !!window.__xkgBack() : false; };
 
   window.xk = {
     settings: { get: function () { return Promise.resolve(pub()); }, set: function (p) { return Promise.resolve(setSettings(p)); } },
@@ -284,21 +296,34 @@
       list: function () { return tx('games', 'readonly', function (s) { return s.getAll(); }).then(function (l) { return (l || []).sort(function (a, b) { return a.id < b.id ? 1 : -1; }).map(summary); }); },
       all: function () { return tx('games', 'readonly', function (s) { return s.getAll(); }).then(function (l) { return l || []; }); },
       get: function (id) { return tx('games', 'readonly', function (s) { return s.get(id); }).then(function (g) { return g || null; }); },
+      saveMany: function (recs) {
+        var ids = [];
+        return tx('games', 'readwrite', function (s) { (recs || []).slice(0, 5000).forEach(function (rec) { var id = String(rec.id || '').replace(/[^\w.-]/g, '') || newId() + ids.length; ids.push(id); s.put(Object.assign({}, rec, { id: id })); }); }).then(function () { return ids; });
+      },
       delete: function (id) { return tx('games', 'readwrite', function (s) { s.delete(id); }).then(function () { return true; }); },
       export: function (name, text) { return saveText(name, text); },
-      pickImport: function () {
-        return pickFiles('.json,.txt,.pgn,.xqf,text/plain,application/json', true).then(function (files) {
-          return Promise.all(files.slice(0, 500).map(function (f) {
-            if (f.size > 5 * 1024 * 1024) return { name: f.name, error: '檔案太大' };
-            return f.arrayBuffer().then(function (buf) { return { name: f.name, text: decodeText(buf) }; });
+      pickImport: function (folder) {
+        return pickFiles('.sgf,.json,.txt,application/x-go-sgf,text/plain,application/json', true, folder).then(function (files) {
+          files = files.filter(function (f) { return /\.(sgf|json|txt)$/i.test(f.name); });
+          return Promise.all(files.slice(0, 5000).map(function (f) {
+            if (f.size > 20 * 1024 * 1024) return { name: f.name, error: '檔案太大' };
+            return f.arrayBuffer().then(function (buf) {
+              var t = new TextDecoder('utf-8').decode(buf);
+              if (t.indexOf('�') >= 0) { try { t = new TextDecoder(/CA\[(gb|GB)/.test(t) ? 'gb18030' : 'big5').decode(buf); } catch (e) { /* 保留 UTF-8 */ } }
+              return { name: f.name, text: t };
+            });
           }));
         });
       },
     },
+    kb: {
+      get: function () { return tx('kv', 'readonly', function (s) { return s.get('kb'); }).then(function (v) { return v || null; }); },
+      set: function (d) { return tx('kv', 'readwrite', function (s) { s.put(d, 'kb'); }).then(function () { return true; }); },
+    },
     music: {
       list: function () {
-        var builtin = fetch('../../assets/music/tracks.json').then(function (r) { return r.json(); }).then(function (l) {
-          return l.map(function (t) { return { title: t.title, url: '../../assets/music/' + t.file, builtin: true, seconds: t.seconds }; });
+        var builtin = fetch(abs('assets/music/tracks.json')).then(function (r) { return r.json(); }).then(function (l) {
+          return l.map(function (t) { return { title: t.title, url: abs('assets/music/' + t.file), builtin: true, seconds: t.seconds }; });
         }).catch(function () { return []; });
         var own = tx('music', 'readonly', function (s) { return s.getAll(); }).then(function (l) {
           return (l || []).map(function (m) { return { title: m.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(m.blob), builtin: false, file: m.name }; });
@@ -316,7 +341,7 @@
       check: checkUpdate,
       download: downloadUpdate,
       install: function () { return Promise.resolve({ manual: true, android: isAndroid }); },
-      openPage: function () { openUrl((updInfo && updInfo.page) || (isIOS ? IOS_INSTALL_PAGE : 'https://github.com/achir1015/xiaoke-chess/releases/latest')); return Promise.resolve(); },
+      openPage: function () { openUrl((updInfo && updInfo.page) || (isIOS ? IOS_INSTALL_PAGE : 'https://github.com/' + REPO + '/releases/latest')); return Promise.resolve(); },
       onProgress: function (fn) { progressFns.push(fn); return function () { progressFns = progressFns.filter(function (f) { return f !== fn; }); }; },
     },
     advisor: {

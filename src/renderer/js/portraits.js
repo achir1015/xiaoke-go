@@ -1,7 +1,7 @@
 // 半身頭像：英雄（男 20）、佳人（女 20）、AI 軍師（男女各 15）
-import { $$, h, modal } from './util.js';
+import { $$, h, modal, ASSETS } from './util.js';
 
-const BASE = '../../assets/portraits/';
+const BASE = ASSETS + 'portraits/';
 let list = [];
 let byId = new Map();
 

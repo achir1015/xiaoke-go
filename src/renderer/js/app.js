@@ -1,5 +1,5 @@
 // 小柯機器人圍棋競賽：主控流程（真人對 AI、真人對真人〔本機／遠端〕、AI 對 AI、棋譜重播）
-import { $, $$, h, toast, modal, sleep, errMsg, fmtDate, uid } from './util.js';
+import { $, $$, h, toast, modal, sleep, errMsg, fmtDate, uid, ICON } from './util.js';
 import { Game, BLACK, WHITE, PASS, other, colorName, pointName, toGtp, fromGtp, resultText, recordToSgf, parseSgf, deadFromOwnership, fmtNum } from './go.js';
 import { AIEngine, LEVELS, wrFor, leadFor } from './ai.js';
 import { Book, buildBook } from './book.js';
@@ -81,6 +81,8 @@ async function init() {
   advisor.setHasKey(S.settings.advisor.hasKey);
 
   bindUI();
+  if (document.documentElement.classList.contains('mobile')) setupMobile();
+  else if (document.documentElement.classList.contains('touch')) setupTouch();
   buildDataPanel();
   renderHome();
   showScreen('home');
@@ -153,6 +155,66 @@ function bindUI() {
     if (e.key === 'ArrowLeft') replayGo(S.replay.ply - 1);
     if (e.key === 'ArrowRight') replayGo(S.replay.ply + 1);
   });
+}
+
+// ---------------- 手機版（直立）----------------
+// 兩位棋手一排在上、棋盤最大；棋譜、數據、軍師、對話、音樂收進底部抽屜，點分頁打開、再點一次收起
+function setupMobile() {
+  document.body.classList.add('is-mobile');
+  const players = h('div', { id: 'players' });
+  $('#pBlack').before(players);
+  players.append($('#pBlack'), $('#pWhite'));
+  const tabs = $('.right .tabs');
+  tabs.prepend(h('button', { class: 'tab', 'data-tab': 'moves' }, '📜 棋譜'));
+  const pane = h('div', { id: 'pane-moves', class: 'tabpane' });
+  pane.append($('.movebox'));
+  $('#pane-data').before(pane);
+  $$('.tab').forEach((t) => {
+    t.onclick = () => {
+      t.classList.remove('ping');
+      const open = document.body.classList.contains('sheet-open');
+      const same = t.classList.contains('on');
+      selectTab(t.dataset.tab);
+      document.body.classList.toggle('sheet-open', !(open && same));
+    };
+  });
+  $('#boardWrap').addEventListener('pointerdown', () => document.body.classList.remove('sheet-open'));
+  setupTouchVolume();
+  // 手機返回鍵：先關對話框、抽屜、音量，再回上一頁
+  window.__xkgBack = () => {
+    const m = $('.modal-back');
+    if (m) { const btns = m.querySelectorAll('.modal-btns button'); (btns[0] || btns[btns.length - 1]).click(); return true; }
+    if (document.body.classList.contains('sheet-open')) { document.body.classList.remove('sheet-open'); return true; }
+    if ($$('.vol.open').length) { $$('.vol.open').forEach((x) => x.classList.remove('open')); return true; }
+    if (S.screen === 'game') { leaveGame(); return true; }
+    if (S.screen === 'guide') { $('#scr-guide .gd-head button').click(); return true; }
+    if (S.screen === 'help') { $('#scr-help .gd-head button').click(); return true; }
+    if (S.screen === 'records') { showScreen('home'); return true; }
+    return false;
+  };
+}
+
+// iPad（電腦版版面、觸控螢幕）：沒有滑鼠，音量改成點一下打開；棋盤提示改手指操作
+function setupTouch() {
+  setupTouchVolume();
+  $('.board-tip').textContent = '點交叉點落子．兩指拖曳旋轉．兩指捏合縮放';
+}
+
+function setupTouchVolume() {
+  const toggleVol = (btn) => (e) => {
+    e.stopPropagation();
+    const v = btn.closest('.vol');
+    const was = v.classList.contains('open');
+    $$('.vol.open').forEach((x) => x.classList.remove('open'));
+    if (!was) v.classList.add('open');
+    $('#musicPlay').textContent = music.playing ? '暫停' : '播放';
+  };
+  $('#btnSfx').onclick = toggleVol($('#btnSfx'));
+  $('#miniMusic').onclick = toggleVol($('#miniMusic'));
+  $('#sfxMute').onclick = (e) => { e.stopPropagation(); $('#btnSfx').dispatchEvent(new CustomEvent('mute')); };
+  $('#musicPlay').onclick = (e) => { e.stopPropagation(); music.toggle(); $('#musicPlay').textContent = music.playing ? '暫停' : '播放'; };
+  $$('.vol-pop').forEach((p) => p.addEventListener('click', (e) => e.stopPropagation()));
+  document.addEventListener('click', () => $$('.vol.open').forEach((x) => x.classList.remove('open')));
 }
 
 function selectTab(name) {
@@ -238,8 +300,8 @@ function renderHome() {
 
   home.append(
     h('div', { class: 'home-hero' },
-      h('img', { class: 'hero-icon', src: '../../build/icon.png', alt: '' }),
-      h('div', {}, h('h1', {}, '小柯機器人圍棋競賽'), h('p', { class: 'muted' }, '3D 圍棋．KataGo 即時勝率．AI 軍師陪你下'), h('p', { id: 'engineStatus', class: 'engine-status small' })),
+      h('img', { class: 'hero-icon', src: ICON, alt: '' }),
+      h('div', {}, h('h1', {}, '小柯機器人圍棋競賽'), h('p', { class: 'muted' }, `3D 圍棋．${window.xk.kata ? 'KataGo' : 'AI'} 即時勝率．AI 軍師陪你下`), h('p', { id: 'engineStatus', class: 'engine-status small' })),
       myProfileCard(),
       h('div', { class: 'hero-name' }, h('label', {}, '我的暱稱'), nameInput)),
     h('div', { class: 'mode-grid' }, cardAI, cardNet, cardAivai),
@@ -505,6 +567,7 @@ function setupGame(mode, opts) {
   $('#dpMistakes').innerHTML = '';
   showScreen('game');
   selectTab(mode === 'net' ? 'chat' : 'data');
+  document.body.classList.remove('sheet-open');
   updateAdvisorHead();
   updateGameUI();
   renderData();
@@ -1655,7 +1718,7 @@ async function openAbout() {
   const status = h('div', { class: 'upd-status muted' }, '正在檢查是否有新版本…');
   const st = ai.status || {};
   const body = h('div', { class: 'about' },
-    h('div', { class: 'about-head' }, h('img', { class: 'about-icon', src: '../../build/icon.png' }),
+    h('div', { class: 'about-head' }, h('img', { class: 'about-icon', src: ICON }),
       h('div', {}, h('h2', {}, '小柯機器人圍棋競賽'), h('div', { class: 'muted' }, `版本 v${S.info.version}　（${S.info.platform === 'darwin' ? 'macOS' : S.info.platform === 'win32' ? 'Windows' : S.info.platform}）`))),
     h('p', { class: 'credit-line' }, CREDIT),
     h('p', { class: 'muted small' }, '3D 圍棋（9／13／19 路）：真人對 AI、真人對真人（本機或遠端＋語音）、AI 對 AI；KataGo 即時勝率與覆盤速算；AI 軍師陪同與代打；棋譜庫與布局學習；動畫語音教學；20 首原創背景音樂。'),

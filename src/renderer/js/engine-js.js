@@ -201,6 +201,7 @@ class Node {
     this.children = null;
     this.n = 0; this.w = 0;     // 從「下這手的一方」角度
     this.rn = 0; this.rw = 0;   // RAVE
+    this.sn = 0; this.ss = 0;   // 實際模擬次數與目數總和（黑方角度）
   }
 }
 
@@ -272,6 +273,7 @@ export function search(opts) {
     // 回傳
     for (let x = node; x; x = x.parent) {
       x.n++; if (x.color === winner) x.w++;
+      x.sn++; x.ss += sc;
       if (x.children) for (const ch of x.children) {
         if (ch.move >= 0 && amaf[ch.move] === ch.color) { ch.rn++; if (ch.color === winner) ch.rw++; }
       }
@@ -281,8 +283,10 @@ export function search(opts) {
   const kids = (rootNode.children || []).slice().sort((a, b) => b.n - a.n);
   const wrBlack = (ch) => (ch.color === BLACK ? ch.w / ch.n : 1 - ch.w / ch.n);
   const ownership = Array.from(own, (v) => v / Math.max(1, sims));
-  const lead = scoreSum / Math.max(1, sims);
-  const moves = kids.slice(0, 12).map((ch, k) => ({ i: ch.move, visits: ch.n - 2, winrate: wrBlack(ch), scoreLead: lead, order: k, prior: 0, pv: [ch.move] }));
+  // 目差用各著手實際模擬的平均目數；整體目差取最佳著手（和勝率一致）
+  const leadOf = (ch) => (ch.sn ? ch.ss / ch.sn : scoreSum / Math.max(1, sims));
+  const moves = kids.slice(0, 12).map((ch, k) => ({ i: ch.move, visits: ch.n - 2, winrate: wrBlack(ch), scoreLead: leadOf(ch), order: k, prior: 0, pv: [ch.move] }));
+  const lead = kids.length ? leadOf(kids[0]) : scoreSum / Math.max(1, sims);
   const rootWr = moves.length ? moves[0].winrate : 0.5;
   return { sims, moves, winrate: rootWr, scoreLead: lead, ownership, visits: sims };
 }

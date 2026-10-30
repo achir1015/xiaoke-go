@@ -59,4 +59,8 @@ export function fmtDate(iso) {
   return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+// 素材位置：桌面版網頁在 src/renderer，手機版／線上版（mobile/www）的素材就在網頁旁邊
+export const ASSETS = window.XKG_VERSION ? 'assets/' : '../../assets/';
+export const ICON = window.XKG_VERSION ? 'assets/icon.png' : '../../build/icon.png';
+
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
