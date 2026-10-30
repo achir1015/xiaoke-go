@@ -91,7 +91,7 @@ export class AIEngine {
     const r = await this.jsSearch({
       n, cells: game.board.cells, toMove, komi: game.komi, legal: game.legalMoves(),
       playouts: opts.playouts || Math.max(800, (opts.visits || 100) * 25), timeMs: opts.timeMs || 1500,
-      allowPass: game.ply > n * n * 0.4 || !!game.passes,
+      allowPass: game.ply > n * n * 0.4 || !!game.passes, lastMove: game.lastMove ? game.lastMove.i : -1,
     });
     return { engine: '小柯 JS 引擎', toMove, winrate: r.winrate, scoreLead: r.scoreLead, visits: r.visits, moves: r.moves, ownership: r.ownership, policy: null };
   }

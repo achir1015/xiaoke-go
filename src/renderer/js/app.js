@@ -91,7 +91,7 @@ async function init() {
   document.addEventListener('pointerdown', () => sfx.resume(), { once: true });
   ai.init().then(() => renderEngineStatus());
   rebuildBook();
-  if (S.settings.autoUpdate !== false && S.info.packaged && !S.info.profile) setTimeout(() => checkUpdate(false), 6000);
+  if (S.settings.autoUpdate !== false && (S.info.packaged || S.info.platform === 'web') && !S.info.profile) setTimeout(() => checkUpdate(false), 6000);
 }
 
 async function saveSettings(patch) {
@@ -1719,7 +1719,7 @@ async function openAbout() {
   const st = ai.status || {};
   const body = h('div', { class: 'about' },
     h('div', { class: 'about-head' }, h('img', { class: 'about-icon', src: ICON }),
-      h('div', {}, h('h2', {}, '小柯機器人圍棋競賽'), h('div', { class: 'muted' }, `版本 v${S.info.version}　（${S.info.platform === 'darwin' ? 'macOS' : S.info.platform === 'win32' ? 'Windows' : S.info.platform}）`))),
+      h('div', {}, h('h2', {}, '小柯機器人圍棋競賽'), h('div', { class: 'muted' }, `版本 v${S.info.version}　（${S.info.platform === 'darwin' ? 'macOS' : S.info.platform === 'win32' ? 'Windows' : S.info.platform === 'web' ? '線上版' : S.info.platform}）`))),
     h('p', { class: 'credit-line' }, CREDIT),
     h('p', { class: 'muted small' }, '3D 圍棋（9／13／19 路）：真人對 AI、真人對真人（本機或遠端＋語音）、AI 對 AI；KataGo 即時勝率與覆盤速算；AI 軍師陪同與代打；棋譜庫與布局學習；動畫語音教學；20 首原創背景音樂。'),
     h('p', { class: 'muted small' }, `AI 引擎：${ai.useKata ? 'KataGo' : '小柯 JS 引擎'}${st.error ? `（${st.error}）` : ''}。KataGo 由 David J Wu（lightvector）與貢獻者開發，MIT 授權；神經網路權重來自 katagotraining.org。`),
@@ -1746,6 +1746,12 @@ async function checkUpdate(manual, statusEl) {
 }
 
 async function startUpdate(info) {
+  if (info.flavor === 'web') {
+    if (S.game && isPlay()) await saveUnfinished();
+    try { sessionStorage.setItem('xkg.reloadFor', info.latest); } catch { /* 無痕模式 */ }
+    location.reload();
+    return;
+  }
   if (!info.canInstall) {
     const v = await modal('下載新版本', h('p', {}, info.flavor === 'dev' ? '目前是開發版，請到 GitHub 下載安裝檔。' : '找不到這個平台的安裝檔，請到 GitHub 下載。'), [{ label: '取消', value: false }, { label: '開啟下載頁', value: true, primary: true }]);
     if (v) xk.update.openPage();

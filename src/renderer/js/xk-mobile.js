@@ -173,6 +173,20 @@
         }, 0);
       });
     }
+    if (!isIOS) {
+      // 線上版：比對網站上目前的版本號，有新版就重新整理頁面
+      return fetch(abs('version.json'), { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw new Error('查詢失敗（' + r.status + '）');
+        return r.json();
+      }).then(function (j) {
+        var latest = String(j.version || cur);
+        // 剛為這一版重新整理過：瀏覽器快取最多 10 分鐘還是舊檔，先不要再問
+        var tried = false;
+        try { tried = sessionStorage.getItem('xkg.reloadFor') === latest; } catch (e) { /* 無痕模式 */ }
+        updInfo = { current: cur, latest: latest, newer: cmpVer(latest, cur) > 0 && !tried, notes: '', page: location.href, asset: null, flavor: 'web', canInstall: false };
+        return updInfo;
+      });
+    }
     var done = function (latest, notes, page, ipa) {
       updInfo = { current: cur, latest: latest, newer: cmpVer(latest, cur) > 0, notes: notes || '', page: isIOS ? IOS_INSTALL_PAGE : page,
         asset: ipa ? { name: ipa.name, url: ipa.browser_download_url, size: ipa.size } : null, flavor: isIOS ? 'ios' : 'web', canInstall: false };

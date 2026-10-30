@@ -10,6 +10,10 @@ https://github.com/user-attachments/assets/02a385ea-5ba6-4846-96d6-6800c01807ec
 
 **遊戲開發：吳玉柱 先生 與 Claude AI Opus 5.5**
 
+## 線上玩
+
+不用安裝，用瀏覽器開 **https://achir1015.github.io/xiaoke-go/online/** 就能玩（電腦、平板、手機都可以；AI 用瀏覽器裡的小柯 JS 引擎，棋譜和設定存在這台裝置的瀏覽器）。網站首頁：https://achir1015.github.io/xiaoke-go/
+
 ## 下載
 
 到 [Releases](https://github.com/achir1015/xiaoke-go/releases/latest) 下載：

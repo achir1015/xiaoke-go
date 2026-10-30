@@ -202,6 +202,7 @@ class Node {
     this.n = 0; this.w = 0;     // 從「下這手的一方」角度
     this.rn = 0; this.rw = 0;   // RAVE
     this.sn = 0; this.ss = 0;   // 實際模擬次數與目數總和（黑方角度）
+    this.sb = 0;                // 實際模擬中黑勝的次數
   }
 }
 
@@ -219,6 +220,50 @@ function prior(n, i, stones) {
   return d === 0 ? 0.35 : 0.5;
 }
 
+// 13／19 路點太多，模擬次數分到每點只剩幾局：先挑出像樣的候選點（三四線、靠近棋子、上一手附近），一線二線只在接觸戰時考慮
+function rootCandidates(n, cells, legal, lastMove, rng) {
+  const near = new Float32Array(n * n);
+  let stones = 0;
+  for (let i = 0; i < n * n; i++) {
+    if (!cells[i]) continue;
+    stones++;
+    const x = i % n, y = (i / n) | 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= n || yy >= n) continue;
+      near[yy * n + xx] = Math.max(near[yy * n + xx], Math.abs(dx) + Math.abs(dy) <= 1 ? 2 : 1);
+    }
+  }
+  // 叫吃、提子、逃子：氣少的棋塊，它的氣都要列入
+  const urgent = new Float32Array(n * n), seen = new Uint8Array(n * n);
+  for (let i = 0; i < n * n; i++) {
+    if (!cells[i] || seen[i]) continue;
+    const stack = [i], libs = new Set();
+    seen[i] = 1;
+    while (stack.length) {
+      const p = stack.pop(), x = p % n, y = (p / n) | 0;
+      for (const q of [x > 0 ? p - 1 : -1, x < n - 1 ? p + 1 : -1, y > 0 ? p - n : -1, y < n - 1 ? p + n : -1]) {
+        if (q < 0) continue;
+        if (!cells[q]) libs.add(q);
+        else if (cells[q] === cells[i] && !seen[q]) { seen[q] = 1; stack.push(q); }
+      }
+    }
+    const bonus = libs.size === 1 ? 5 : libs.size === 2 ? 1.5 : 0;
+    if (bonus) for (const q of libs) urgent[q] = Math.max(urgent[q], bonus);
+  }
+  const lx = lastMove >= 0 ? lastMove % n : -9, ly = lastMove >= 0 ? (lastMove / n) | 0 : -9;
+  const scored = legal.map((i) => {
+    const x = i % n, y = (i / n) | 0;
+    const d = Math.min(x, y, n - 1 - x, n - 1 - y);
+    let s = d === 0 ? -3 : d === 1 ? -1.2 : d === 2 || d === 3 ? (stones < n ? 2 : 1) : 0.4;
+    s += near[i] * (d <= 1 ? 1.6 : 0.8);
+    if (Math.max(Math.abs(x - lx), Math.abs(y - ly)) <= 2) s += 1;
+    s += urgent[i];
+    return { i, s: s + rng() * 0.3 };
+  }).sort((a, b) => b.s - a.s);
+  return scored.slice(0, n >= 19 ? 48 : 40).map((m) => m.i);
+}
+
 // opts: { n, cells, toMove, komi, legal:[...], playouts, timeMs, seed, lastMove, allowPass }
 export function search(opts) {
   const { n, toMove } = opts;
@@ -227,7 +272,8 @@ export function search(opts) {
   const root = new FastBoard(n);
   for (let i = 0; i < n * n; i++) if (opts.cells[i]) root.play(i, opts.cells[i]);
   root.ko = -1;
-  const legal = (opts.legal || []).filter((i) => i >= 0 && !root.isEye(i, toMove));
+  let legal = (opts.legal || []).filter((i) => i >= 0 && !root.isEye(i, toMove));
+  if (n >= 13) legal = rootCandidates(n, opts.cells, legal, opts.lastMove, rng);
   const stones = n * n - root.ecount;
   const work = new FastBoard(n);
   const own = new Float32Array(n * n);
@@ -273,7 +319,7 @@ export function search(opts) {
     // 回傳
     for (let x = node; x; x = x.parent) {
       x.n++; if (x.color === winner) x.w++;
-      x.sn++; x.ss += sc;
+      x.sn++; x.ss += sc; if (sc > 0) x.sb++;
       if (x.children) for (const ch of x.children) {
         if (ch.move >= 0 && amaf[ch.move] === ch.color) { ch.rn++; if (ch.color === winner) ch.rw++; }
       }
@@ -281,12 +327,15 @@ export function search(opts) {
     sims++;
   }
   const kids = (rootNode.children || []).slice().sort((a, b) => b.n - a.n);
-  const wrBlack = (ch) => (ch.color === BLACK ? ch.w / ch.n : 1 - ch.w / ch.n);
   const ownership = Array.from(own, (v) => v / Math.max(1, sims));
-  // 目差用各著手實際模擬的平均目數；整體目差取最佳著手（和勝率一致）
-  const leadOf = (ch) => (ch.sn ? ch.ss / ch.sn : scoreSum / Math.max(1, sims));
-  const moves = kids.slice(0, 12).map((ch, k) => ({ i: ch.move, visits: ch.n - 2, winrate: wrBlack(ch), scoreLead: leadOf(ch), order: k, prior: 0, pv: [ch.move] }));
-  const lead = kids.length ? leadOf(kids[0]) : scoreSum / Math.max(1, sims);
-  const rootWr = moves.length ? moves[0].winrate : 0.5;
+  // 勝率與目差用各著手實際模擬的結果；模擬次數少（19 路每點只有幾局）時往整體平均靠，避免數字亂跳
+  const K = 24;
+  const allWr = rootNode.sn ? rootNode.sb / rootNode.sn : 0.5;
+  const allLead = scoreSum / Math.max(1, sims);
+  const wrOf = (ch) => (ch.sb + K * allWr) / (ch.sn + K);
+  const leadOf = (ch) => (ch.ss + K * allLead) / (ch.sn + K);
+  const moves = kids.slice(0, 12).map((ch, k) => ({ i: ch.move, visits: ch.n - 2, winrate: wrOf(ch), scoreLead: leadOf(ch), order: k, prior: 0, pv: [ch.move] }));
+  const lead = kids.length ? leadOf(kids[0]) : allLead;
+  const rootWr = kids.length ? wrOf(kids[0]) : allWr;
   return { sims, moves, winrate: rootWr, scoreLead: lead, ownership, visits: sims };
 }

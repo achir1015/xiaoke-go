@@ -29,13 +29,20 @@ fs.copyFileSync(path.join(ROOT, 'node_modules/peerjs/dist/peerjs.min.js'), path.
 await build({ entryPoints: [path.join(ROOT, 'mobile/anthropic-entry.mjs')], bundle: true, format: 'esm', platform: 'browser', minify: true, outfile: path.join(OUT, 'vendor/anthropic.js'), logLevel: 'warning' });
 // 4. 版本號
 fs.writeFileSync(path.join(OUT, 'js/version.js'), `window.XKG_VERSION = ${JSON.stringify(pkg.version)};\n`);
+fs.writeFileSync(path.join(OUT, 'version.json'), JSON.stringify({ version: pkg.version }) + '\n'); // 線上版檢查更新用
+// 線上版「加到主畫面」：圖示與 Web App 資訊（App 版用不到也無妨）
+fs.writeFileSync(path.join(OUT, 'manifest.webmanifest'), JSON.stringify({
+  name: '小柯機器人圍棋競賽', short_name: '小柯圍棋', start_url: './', scope: './', display: 'fullscreen', orientation: 'any',
+  background_color: '#1b1410', theme_color: '#1b1410', lang: 'zh-Hant',
+  icons: [{ src: 'assets/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any' }],
+}, null, 1));
 // 5. index.html：路徑改到 vendor/，重算 importmap 的 CSP 雜湊
 let html = fs.readFileSync(path.join(OUT, 'index.html'), 'utf8');
 const sub = (a, b) => { if (!html.includes(a)) throw new Error('index.html 找不到：' + a); html = html.replace(a, b); };
 sub('../../node_modules/three/build/three.module.js', './vendor/three.module.js');
 sub('../../node_modules/peerjs/dist/peerjs.min.js', 'vendor/peerjs.min.js');
 sub('<script src="js/xk-mobile.js"></script>', '<script src="js/version.js"></script>\n<script src="js/xk-mobile.js"></script>');
-html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">');
+html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">\n<link rel="manifest" href="manifest.webmanifest">\n<link rel="icon" href="assets/icon.png">\n<link rel="apple-touch-icon" href="assets/icon.png">\n<meta name="theme-color" content="#1b1410">\n<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n<meta name="apple-mobile-web-app-title" content="小柯圍棋">');
 const im = /<script type="importmap">([\s\S]*?)<\/script>/.exec(html)[1];
 const hash = crypto.createHash('sha256').update(im, 'utf8').digest('base64');
 html = html.replace(/'sha256-[^']*'/, `'sha256-${hash}'`);
