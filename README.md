@@ -1,5 +1,11 @@
 # 小柯機器人圍棋競賽
 
+<img width="1869" height="870" alt="image" src="https://github.com/user-attachments/assets/074b897a-7cb3-4ed0-a10c-f1457f2c4d5b" />
+
+示範
+
+https://github.com/user-attachments/assets/02a385ea-5ba6-4846-96d6-6800c01807ec
+
 3D 立體圍棋對弈程式：內建 KataGo 引擎即時顯示勝率，AI 軍師陪同參賽，棋譜累積與覆盤速算，動畫語音教學。
 
 **遊戲開發：吳玉柱 先生 與 Claude AI Opus 5.5**
