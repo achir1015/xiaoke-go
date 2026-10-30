@@ -48,4 +48,4 @@ if [ "$ARCH" = "x86_64" ]; then
 else
   build 0 bin
 fi
-echo "KataGo（$ARCH）編譯完成"
+echo "KataGo（${ARCH}）編譯完成"
