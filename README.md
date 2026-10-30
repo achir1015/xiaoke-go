@@ -1,4 +1,4 @@
-# 小柯機器人圍棋競賽
+# 小柯機器人圍棋競賽 https://achir1015.github.io/xiaoke-go/online/
 
 <img width="1869" height="870" alt="image" src="https://github.com/user-attachments/assets/074b897a-7cb3-4ed0-a10c-f1457f2c4d5b" />
 
