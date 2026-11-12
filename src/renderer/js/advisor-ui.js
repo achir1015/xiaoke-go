@@ -34,8 +34,8 @@ export class AdvisorPanel {
 
   setHasKey(v) {
     this.hasKey = v;
-    this.modeEl.textContent = v ? '🟢 Claude 軍師（線上）＋KataGo' : '⚪ 離線軍師（本機引擎）';
-    this.modeEl.title = v ? '使用 Claude 以白話解說 KataGo 的分析' : '尚未設定 Anthropic API 金鑰，只提供引擎的分析。可到「設定」輸入金鑰。';
+    this.modeEl.textContent = v ? '🟢 Claude 軍師（線上）＋AI 引擎' : '⚪ 離線軍師（本機引擎）';
+    this.modeEl.title = v ? '使用 Claude 以白話解說 AI 引擎的分析' : '尚未設定 Anthropic API 金鑰，只提供引擎的分析。可到「設定」輸入金鑰。';
   }
 
   build() {
@@ -52,7 +52,7 @@ export class AdvisorPanel {
       h('div', { class: 'adv-quick' }, QUICK.map(([label, q]) => h('button', { class: 'chip', onclick: () => this.send(q) }, label))),
       h('div', { class: 'adv-send' }, this.input, this.btnSend),
     );
-    this.say('ai', '您好！我是您的 AI 軍師。比賽中隨時可以問我，我會先請 KataGo 算一遍勝率與候選著法，再用白話告訴您建議和理由。');
+    this.say('ai', '您好！我是您的 AI 軍師。比賽中隨時可以問我，我會先請 AI 引擎算一遍勝率與候選著法，再用白話告訴您建議和理由。');
   }
 
   reset() {
@@ -94,7 +94,7 @@ export class AdvisorPanel {
       recent ? `最近的著手：\n${recent}` : '（還沒有人下）',
     ];
     if (a) {
-      lines.push(`KataGo 分析（${a.engine}，計算量 ${a.visits}）：${colorName(me)}方勝率 ${pct(wrFor(a.winrate, me))}，${colorName(me)}方${lead(leadFor(a.scoreLead, me))}。`);
+      lines.push(`引擎分析（${a.engine}，計算量 ${a.visits}）：${colorName(me)}方勝率 ${pct(wrFor(a.winrate, me))}，${colorName(me)}方${lead(leadFor(a.scoreLead, me))}。`);
       lines.push(`候選著法（${toMove === me ? '給您參考' : '對方可能下的'}；勝率以${colorName(toMove)}方計）：`);
       a.moves.slice(0, 5).forEach((m, k) => {
         lines.push(`${k + 1}. ${pointName(m.i, n)}　勝率 ${pct(wrFor(m.winrate, toMove))}　目差 ${leadFor(m.scoreLead, toMove).toFixed(1)}　計算量 ${m.visits}　預想：${this.pvText(g, m.pv)}`);
@@ -121,7 +121,8 @@ export class AdvisorPanel {
     let c;
     try { c = await this.buildContext(); } catch (e) { pending.textContent = '分析失敗：' + e.message; pending.classList.remove('thinking'); return; }
     if (c.mine && c.a && c.a.moves[0]) this.ctx().showHint(c.a.moves[0].i);
-    if (!this.hasKey) {
+    // 第一次把局面送給 Claude 之前要先同意（不同意就只用本機 AI）
+    if (!this.hasKey || (this.ctx().consent && !(await this.ctx().consent()))) {
       pending.classList.remove('thinking');
       pending.textContent = this.offlineAnswer(c);
       this.scroll();
@@ -170,7 +171,7 @@ export class AdvisorPanel {
     if (c.mine) {
       return `建議下「${pointName(best.i, n)}」（下完勝率 ${pct(wrFor(best.winrate, me))}）。\n目前${colorName(me)}方勝率 ${pct(wr)}，${lead(ld)}。${judge}\n預想變化：${this.pvText(g, best.pv)}${alts ? `\n其他可考慮：${alts}` : ''}\n（棋盤上閃爍的綠圈就是建議位置）`;
     }
-    return `現在是${colorName(g.turn)}方下。KataGo 預測會下「${pointName(best.i, n)}」，預想變化：${this.pvText(g, best.pv)}。\n${colorName(me)}方勝率 ${pct(wr)}，${lead(ld)}。${judge}`;
+    return `現在是${colorName(g.turn)}方下。AI 引擎預測會下「${pointName(best.i, n)}」，預想變化：${this.pvText(g, best.pv)}。\n${colorName(me)}方勝率 ${pct(wr)}，${lead(ld)}。${judge}`;
   }
 }
 

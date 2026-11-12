@@ -27,7 +27,7 @@ async function launch(profile, name) {
   win.on('pageerror', (e) => errors.push('[pageerror] ' + e.message));
   await win.waitForSelector('#btnHost', { timeout: 20000 });
   await win.evaluate(async ({ port, name }) => {
-    window.__xkg.settings = await window.xk.settings.set({ playerName: name, announce: false, server: { mode: 'custom', host: '127.0.0.1', port, path: '/', secure: false }, music: { autoplay: false }, profile: name === '小明' ? { avatar: 'm05', advisor: 'am01' } : { avatar: 'f02', advisor: 'af03' } });
+    window.__xkg.settings = await window.xk.settings.set({ playerName: name, announce: false, server: { mode: 'custom', host: '127.0.0.1', port, path: '/', secure: false }, music: { autoplay: false }, netTermsOK: name !== '小明', blocked: [], profile: name === '小明' ? { avatar: 'm05', advisor: 'am01' } : { avatar: 'f02', advisor: 'af03' } });
     document.querySelectorAll('.modal-back').forEach((b) => b.remove());
   }, { port: PORT, name });
   const waitFor = async (fn, arg, ms = 25000) => {
@@ -53,6 +53,10 @@ try {
   await A.win.click('#btnHost >> xpath=../..//button[@data-v="9"]');
   await A.win.selectOption('#hostSide', 'black');
   await A.win.click('#btnHost');
+  // 第一次連線對戰：先同意「連線對戰須知」
+  await A.waitFor(() => document.querySelector('.modal h3') && document.querySelector('.modal h3').textContent === '連線對戰須知');
+  check('第一次建立房間先顯示連線對戰須知', /零容忍/.test(await A.win.evaluate(() => document.querySelector('.modal').textContent)));
+  await A.win.click('.modal-btns button.primary');
   const code = (await A.waitFor(() => document.querySelector('.room-code')?.textContent)).replace(/\s/g, '');
   check('建立房間取得 6 位數房號', /^\d{6}$/.test(code), code);
   await B.win.fill('#joinCode', code);
@@ -81,6 +85,10 @@ try {
   await B.win.click('#chatSend');
   await A.waitFor(() => [...document.querySelectorAll('.chat-msg.opp')].some((e) => e.textContent.includes('請多指教')));
   check('文字聊天', true);
+  await B.win.fill('#chatInput', '你這個白痴');
+  await B.win.click('#chatSend');
+  await A.waitFor(() => [...document.querySelectorAll('.chat-msg.opp')].some((e) => e.textContent.includes('你這個＊＊')));
+  check('聊天過濾不雅字詞', !(await A.win.evaluate(() => document.querySelector('#chatLog').textContent.includes('白痴'))));
 
   // A 換軍師 → B 看到
   await A.win.click('#pBlack .padv-change');
@@ -138,6 +146,27 @@ try {
   await A.waitFor(() => window.__xkg.game && window.__xkg.game.ply === 0 && !window.__xkg.game.result && window.__xkg.mySide === 2);
   await B.waitFor(() => window.__xkg.game && window.__xkg.game.ply === 0 && window.__xkg.mySide === 1);
   check('再來一局黑白交換', true);
+
+  // 封鎖並檢舉：A 封鎖 B → A 回首頁、B 收到結束連線；之後 B 加入 A 的新房間被拒絕
+  await A.win.click('.tab[data-tab="chat"]');
+  await A.win.click('#btnBlock');
+  await A.waitFor(() => document.querySelector('.modal h3') && document.querySelector('.modal h3').textContent === '封鎖並檢舉');
+  await A.win.evaluate(() => [...document.querySelectorAll('.modal-btns button')].find((b) => b.textContent === '只封鎖').click());
+  await A.waitFor(() => window.__xkg.screen === 'home' && !window.__xkg.mode);
+  check('封鎖後立即離開對局', await A.win.evaluate(() => (window.__xkg.settings.blocked || []).some((b) => b.name === '阿華')));
+  await B.waitFor(() => /對方已結束連線/.test(document.querySelector('#chatLog').textContent));
+  check('對方收到結束連線', true);
+  await B.win.evaluate(() => document.querySelector('#btnHome').click());
+  await B.win.waitForTimeout(500);
+  await B.win.evaluate(() => { const b = document.querySelector('.modal-btns button.primary'); if (b) b.click(); });
+  await B.waitFor(() => window.__xkg.screen === 'home');
+  await A.win.click('#btnHost');
+  const code2 = (await A.waitFor(() => document.querySelector('.room-code')?.textContent)).replace(/\s/g, '');
+  await B.win.fill('#joinCode', code2);
+  await B.win.click('#btnJoin');
+  await A.waitFor(() => /封鎖名單/.test(document.querySelector('#netWait').textContent));
+  await B.waitFor(() => /無法和您連線/.test(document.querySelector('#netWait').textContent));
+  check('封鎖的棋友無法再連線', !(await A.win.evaluate(() => window.__xkg.netStarted)) && !(await B.win.evaluate(() => window.__xkg.netStarted)));
 } catch (e) {
   fail++;
   console.log('✘ 例外：', e.message);

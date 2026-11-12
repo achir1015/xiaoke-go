@@ -191,7 +191,7 @@ const advisor = new Advisor({ getKey: getApiKey, getSettings: () => settings.adv
 function handle(ch, fn) { ipcMain.handle(ch, (e, ...a) => fn(...a)); }
 
 handle('settings:get', () => publicSettings());
-const SIMPLE_KEYS = ['playerName', 'profile', 'voiceCall', 'sfxVolume', 'stun', 'sfx', 'view', 'autoUpdate', 'announce', 'learnFromGames', 'proxyLevel', 'guideVoice', 'guideRate', 'helpVoice', 'panelTab'];
+const SIMPLE_KEYS = ['playerName', 'profile', 'voiceCall', 'sfxVolume', 'stun', 'sfx', 'view', 'autoUpdate', 'announce', 'learnFromGames', 'proxyLevel', 'guideVoice', 'guideRate', 'helpVoice', 'panelTab', 'netTermsOK', 'blocked', 'claudeConsent'];
 const OBJ_KEYS = ['game', 'aivai', 'server', 'turn', 'music'];
 handle('settings:set', (patch) => {
   patch = patch || {};

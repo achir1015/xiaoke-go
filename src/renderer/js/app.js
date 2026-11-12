@@ -12,8 +12,11 @@ import { voice } from './voice.js';
 import { loadPortraits, portraitUrl, labelOf, validProfile, randomProfile, pickProfile, pickAdvisor } from './portraits.js';
 import { Guide } from './guide.js';
 import { HelpCenter } from './help.js';
+import { filterText, isBlocked } from './safety.js';
 
 const CREDIT = '遊戲開發：吳玉柱 先生 與 Claude AI Opus 5.5';
+const SUPPORT_URL = 'https://achir1015.github.io/xiaoke-go/support.html';
+const STORE = !!(window.xk && xk.store); // App Store 版：由 App Store 更新
 const SPEEDS = [['fast', '快', 250], ['normal', '一般', 900], ['slow', '慢', 2000]];
 const RULES = { chinese: { name: '中國規則（數子）', komi: 7.5 }, japanese: { name: '日韓規則（數目）', komi: 6.5 } };
 const SIDE = { [BLACK]: '黑方', [WHITE]: '白方' };
@@ -75,6 +78,7 @@ async function init() {
       mySide: ['ai', 'net'].includes(S.mode) ? S.mySide : null,
       analyze: (game) => ai.analyze(game, { visits: 300, ownership: true }),
       showHint: (i) => showHint(i),
+      consent: () => ensureClaudeConsent(),
     };
   });
   advisor.onChange = () => changeAdvisor(advisorOwner());
@@ -91,7 +95,7 @@ async function init() {
   document.addEventListener('pointerdown', () => sfx.resume(), { once: true });
   ai.init().then(() => renderEngineStatus());
   rebuildBook();
-  if (S.settings.autoUpdate !== false && (S.info.packaged || S.info.platform === 'web') && !S.info.profile) setTimeout(() => checkUpdate(false), 6000);
+  if (!STORE && S.settings.autoUpdate !== false && (S.info.packaged || S.info.platform === 'web') && !S.info.profile) setTimeout(() => checkUpdate(false), 6000);
 }
 
 async function saveSettings(patch) {
@@ -140,6 +144,7 @@ function bindUI() {
   $('#chatInput').onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
   $('#btnVoice').onclick = () => toggleVoice();
   $('#btnMute').onclick = () => toggleMute();
+  $('#btnBlock').onclick = () => blockOpponent();
   $('#rpFirst').onclick = () => replayGo(0);
   $('#rpPrev').onclick = () => replayGo(S.replay.ply - 1);
   $('#rpNext').onclick = () => replayGo(S.replay.ply + 1);
@@ -311,7 +316,7 @@ function renderHome() {
       h('button', { id: 'btnHelp', class: 'guide-btn', onclick: () => openHelp() }, '🔊 功能說明'),
       h('button', { onclick: () => openSettings() }, '⚙ 設定'),
       h('button', { onclick: () => { selectTab('music'); enterIdleBoard(); showScreen('game'); } }, '♫ 背景音樂'),
-      h('button', { id: 'btnAbout', onclick: () => openAbout() }, 'ℹ 關於與更新')),
+      h('button', { id: 'btnAbout', onclick: () => openAbout() }, STORE ? 'ℹ 關於' : 'ℹ 關於與更新')),
     h('p', { class: 'learn-stat small muted' }),
     h('div', { class: 'credit muted small' }, `v${S.info.version}　${CREDIT}`),
   );
@@ -1159,6 +1164,10 @@ async function leaveGame() {
     const ok = await modal('離開對局', S.mode === 'net' ? '離開會中斷與對手的連線，確定要離開嗎？' : '這局還沒下完，確定要離開嗎？（棋譜會保留）', [{ label: '繼續下棋', value: false }, { label: '離開', value: true, primary: true }]);
     if (!ok) return;
   }
+  await exitGame();
+}
+
+async function exitGame() {
   await saveUnfinished();
   closeNet();
   if (S.liveId) ai.cancel(S.liveId);
@@ -1234,6 +1243,7 @@ function netWait(el) {
 
 async function hostRoom(cfg) {
   if (!(await ensureProfile())) return;
+  if (!(await ensureNetTerms())) return;
   closeNet();
   S.hostCfg = cfg;
   saveSettings({ game: { size: cfg.size, rules: cfg.rules } });
@@ -1258,6 +1268,7 @@ async function hostRoom(cfg) {
 
 async function joinRoom(code) {
   if (!(await ensureProfile())) return;
+  if (!(await ensureNetTerms())) return;
   closeNet();
   netWait(h('span', {}, '正在連線…'));
   const link = new GameLink(S.settings);
@@ -1322,7 +1333,14 @@ async function onNetMsg(link, m) {
     case 'busy': netWait(h('span', { class: 'err' }, '這個房間已經有人在下棋了')); link.close(); S.link = null; break;
     case 'old': netWait(h('span', { class: 'err' }, m.text || '版本不相容')); toast(m.text || '版本不相容', 'err', 8000); break;
     case 'hello':
-      S.oppName = String(m.name || '對手').slice(0, 16);
+      S.oppName = filterText(String(m.name || '對手').slice(0, 16));
+      if (isBlocked(S.settings.blocked, S.oppName)) {
+        // 已封鎖的棋友：不開局，直接斷線
+        link.send({ t: 'old', text: '對方目前無法和您連線。' });
+        netWait(h('span', { class: 'err' }, `「${S.oppName}」在您的封鎖名單裡，已拒絕連線（可在「設定」解除封鎖）。`));
+        setTimeout(() => { if (S.link === link) { link.close(); S.link = null; } }, 500);
+        return;
+      }
       S.oppProfile = validProfile(m.profile) ? { avatar: m.profile.avatar, advisor: m.profile.advisor } : null;
       if (link.role === 'host') {
         if (S.mode === 'net' && g && !g.result && S.netStarted) {
@@ -1410,7 +1428,7 @@ async function onNetMsg(link, m) {
     }
     case 'rematch-ok': if (link.role === 'host') startRematchAsHost(); break;
     case 'rematch-no': toast('對方暫時不想再下'); break;
-    case 'chat': chatLine('opp', String(m.text || '').slice(0, 500)); if (S.screen === 'game' && !$('#pane-chat').classList.contains('on')) $('.tab[data-tab="chat"]').classList.add('ping'); break;
+    case 'chat': chatLine('opp', filterText(String(m.text || '').slice(0, 500))); if (S.screen === 'game' && !$('#pane-chat').classList.contains('on')) $('.tab[data-tab="chat"]').classList.add('ping'); break;
     case 'voice-end': endVoice(true); break;
     case 'voice-reject': toast('對方沒有接聽語音'); endVoice(false); break;
   }
@@ -1435,6 +1453,58 @@ function closeNet() {
   S.netStarted = false;
 }
 
+// ---------------- 連線對戰的安全：須知、封鎖、檢舉（App Store 準則 1.2） ----------------
+// 第一次連線對戰前：說明只和分享房號的朋友對戰、禁止不當言行、可以封鎖檢舉
+async function ensureNetTerms() {
+  if (S.settings.netTermsOK) return true;
+  const ok = await modal('連線對戰須知', h('div', { class: 'terms' },
+    h('p', {}, '連線對戰只會連到您分享房號（或對方給您房號）的棋友，沒有陌生人配對。對局中可以用文字和語音聊天。'),
+    h('ul', {},
+      h('li', {}, '請友善下棋。禁止騷擾、辱罵、色情、暴力、歧視等不當言行，違反者零容忍。'),
+      h('li', {}, '聊天訊息和暱稱會自動過濾不雅字詞。'),
+      h('li', {}, '遇到不當言行，可在「對話」分頁按「🚫 封鎖並檢舉」：立即離開對局、之後拒絕這位棋友連線，並可回報給開發者（24 小時內處理）。'),
+      h('li', {}, '語音通話要雙方同意才會接通，隨時可以結束或靜音。')),
+    h('p', { class: 'muted small' }, '按「同意」表示您同意遵守以上規範。')),
+    [{ label: '不同意', value: false }, { label: '同意', value: true, primary: true }]);
+  if (ok) await saveSettings({ netTermsOK: true });
+  return !!ok;
+}
+
+async function blockOpponent() {
+  if (S.mode !== 'net' || !S.oppName) { toast('目前沒有連線的棋友', 'info'); return; }
+  const name = S.oppName;
+  const v = await modal('封鎖並檢舉', h('div', { class: 'terms' },
+    h('p', {}, `要封鎖「${name}」嗎？會立即結束對局與語音通話，之後這位棋友無法再和您連線。`),
+    h('p', {}, '若對方有不當言行，可以按「封鎖並檢舉」開啟回報頁，寫下發生的時間與狀況，開發者會在 24 小時內處理。')),
+    [{ label: '取消', value: 0 }, { label: '只封鎖', value: 1 }, { label: '封鎖並檢舉', value: 2, primary: true }]);
+  if (!v) return;
+  const blocked = [...(S.settings.blocked || []).filter((b) => (b.name || b) !== name), { name, date: new Date().toISOString().slice(0, 10) }].slice(-200);
+  await saveSettings({ blocked });
+  if (S.link && S.link.connected) S.link.send({ t: 'chat', text: '（系統）對方已結束連線。' });
+  await exitGame();
+  toast(`已封鎖「${name}」`, 'ok');
+  if (v === 2) xk.openExternal(SUPPORT_URL + '#report');
+}
+
+function blockedRow() {
+  const n = (S.settings.blocked || []).length;
+  const out = h('div', { class: 'inline' }, h('span', { class: 'muted small' }, n ? `${n} 位：${S.settings.blocked.map((b) => b.name || b).slice(-5).join('、')}` : '沒有'));
+  if (n) out.append(h('button', { onclick: async (e) => { await saveSettings({ blocked: [] }); e.target.closest('.inline').firstChild.textContent = '沒有'; e.target.remove(); toast('已解除全部封鎖', 'ok'); } }, '解除全部封鎖'));
+  return out;
+}
+
+// 第一次請 Claude 解說前：說明會把局面與問題送到 Anthropic（App Store 準則 5.1.2）
+async function ensureClaudeConsent() {
+  if (S.settings.claudeConsent) return true;
+  const ok = await modal('使用 Claude AI 軍師', h('div', { class: 'terms' },
+    h('p', {}, 'Claude 軍師會把「目前的棋盤局面、AI 引擎的勝率分析」和「您輸入的問題」，用您自己的 Anthropic API 金鑰送到 Anthropic 公司的 Claude 服務，產生白話解說。'),
+    h('p', {}, '不會送出您的姓名、頭像、聯絡資料或其他個人資料；本程式的開發者也收不到這些內容。Anthropic 依其隱私權政策處理 API 資料。'),
+    h('p', { class: 'muted small' }, '不同意的話，軍師仍會用裝置上的 AI 引擎提供建議（不連網）。')),
+    [{ label: '不同意', value: false }, { label: '同意並使用', value: true, primary: true }]);
+  await saveSettings({ claudeConsent: !!ok });
+  return !!ok;
+}
+
 // ---------------- 聊天與語音 ----------------
 function chatLine(who, text) {
   const log = $('#chatLog');
@@ -1448,7 +1518,7 @@ function chatSys(text) {
 }
 function sendChat() {
   const inp = $('#chatInput');
-  const text = inp.value.trim();
+  const text = filterText(inp.value.trim());
   if (!text || !S.link || !S.link.connected) return;
   S.link.send({ t: 'chat', text });
   chatLine('me', text);
@@ -1715,18 +1785,20 @@ function openHelp() {
 
 // ---------------- 關於與更新 ----------------
 async function openAbout() {
-  const status = h('div', { class: 'upd-status muted' }, '正在檢查是否有新版本…');
+  const status = h('div', { class: 'upd-status muted' }, STORE ? '新版本由 App Store 自動更新。' : '正在檢查是否有新版本…');
   const st = ai.status || {};
   const body = h('div', { class: 'about' },
     h('div', { class: 'about-head' }, h('img', { class: 'about-icon', src: ICON }),
-      h('div', {}, h('h2', {}, '小柯機器人圍棋競賽'), h('div', { class: 'muted' }, `版本 v${S.info.version}　（${S.info.platform === 'darwin' ? 'macOS' : S.info.platform === 'win32' ? 'Windows' : S.info.platform === 'web' ? '線上版' : S.info.platform}）`))),
+      h('div', {}, h('h2', {}, '小柯機器人圍棋競賽'), h('div', { class: 'muted' }, `版本 v${S.info.version}　（${S.info.platform === 'darwin' ? 'macOS' : S.info.platform === 'win32' ? 'Windows' : S.info.platform === 'web' ? '線上版' : S.info.platform === 'ios' ? 'iPhone／iPad' : S.info.platform === 'android' ? 'Android' : S.info.platform}）`))),
     h('p', { class: 'credit-line' }, CREDIT),
-    h('p', { class: 'muted small' }, '3D 圍棋（9／13／19 路）：真人對 AI、真人對真人（本機或遠端＋語音）、AI 對 AI；KataGo 即時勝率與覆盤速算；AI 軍師陪同與代打；棋譜庫與布局學習；動畫語音教學；20 首原創背景音樂。'),
+    h('p', { class: 'muted small' }, `3D 圍棋（9／13／19 路）：真人對 AI、真人對真人（本機或遠端＋語音）、AI 對 AI；${ai.useKata ? 'KataGo' : 'AI'} 即時勝率與覆盤速算；AI 軍師陪同與代打；棋譜庫與布局學習；動畫語音教學；20 首原創背景音樂。`),
     h('p', { class: 'muted small' }, `AI 引擎：${ai.useKata ? 'KataGo' : '小柯 JS 引擎'}${st.error ? `（${st.error}）` : ''}。KataGo 由 David J Wu（lightvector）與貢獻者開發，MIT 授權；神經網路權重來自 katagotraining.org。`),
-    h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: S.settings.autoUpdate !== false, onchange: (e) => saveSettings({ autoUpdate: e.target.checked }) }), ' 開啟程式時自動檢查新版本'),
-    status);
-  const p = modal('關於與更新', body, [{ label: '關閉', value: false, primary: true }]);
-  checkUpdate(true, status);
+    STORE ? null : h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: S.settings.autoUpdate !== false, onchange: (e) => saveSettings({ autoUpdate: e.target.checked }) }), ' 開啟程式時自動檢查新版本'),
+    status,
+    h('p', { class: 'small' }, h('a', { href: '#', onclick: (e) => { e.preventDefault(); xk.openExternal(SUPPORT_URL); } }, '技術支援與檢舉'), '　',
+      h('a', { href: '#', onclick: (e) => { e.preventDefault(); xk.openExternal(SUPPORT_URL.replace('support', 'privacy')); } }, '隱私權政策')));
+  const p = modal(STORE ? '關於' : '關於與更新', body, [{ label: '關閉', value: false, primary: true }]);
+  if (!STORE) checkUpdate(true, status);
   await p;
 }
 
@@ -1810,12 +1882,13 @@ async function openSettings() {
     row('音效', h('label', { class: 'chk' }, f.sfx, ' 落子、提子、叫吃音效')),
     row('對局語音播報', h('label', { class: 'chk' }, f.announce, ' 叫吃、提子、打劫、停一手、終局時用語音提醒')),
     row('背景音樂', h('label', { class: 'chk' }, f.autoplay, ' 開啟程式後自動播放')),
-    row('版本更新', h('label', { class: 'chk' }, f.autoUpdate, ' 開啟程式時自動檢查新版本')),
-    row(`目前版本 v${S.info.version}`, h('div', { class: 'inline' }, h('button', { id: 'btnCheckUpdate', onclick: () => { updStatus.textContent = '正在檢查是否有新版本…'; checkUpdate(true, updStatus); } }, '🔄 檢查更新'), updStatus)),
+    STORE ? row(`目前版本 v${S.info.version}`, h('div', { class: 'muted small' }, '新版本由 App Store 自動更新。')) : row('版本更新', h('label', { class: 'chk' }, f.autoUpdate, ' 開啟程式時自動檢查新版本')),
+    STORE ? null : row(`目前版本 v${S.info.version}`, h('div', { class: 'inline' }, h('button', { id: 'btnCheckUpdate', onclick: () => { updStatus.textContent = '正在檢查是否有新版本…'; checkUpdate(true, updStatus); } }, '🔄 檢查更新'), updStatus)),
+    row('已封鎖的棋友', blockedRow()),
     row('半身照與 AI 軍師', h('button', { onclick: async () => { await ensureProfile(true); } }, '更換半身照與軍師')),
     row('軍師代打的棋力', f.proxyLevel, '暫時離開時，AI 軍師用這個難度替您下棋。'),
     h('h4', {}, 'AI 軍師（Claude）'),
-    row('Anthropic API 金鑰', f.key, s.advisor.envKey && !s.advisor.hasKey ? '已偵測到環境變數 ANTHROPIC_API_KEY。' : '金鑰會加密存在本機，只用來呼叫 Claude。沒有金鑰時軍師仍會提供 KataGo 的分析。'),
+    row('Anthropic API 金鑰', f.key, s.advisor.envKey && !s.advisor.hasKey ? '已偵測到環境變數 ANTHROPIC_API_KEY。' : '金鑰只存在本機，只用來呼叫 Claude。使用時會把棋盤局面與您的問題送到 Anthropic；沒有金鑰時軍師仍會提供本機 AI 引擎的分析。'),
     row('模型', f.model),
     row('思考深度', f.effort),
     h('div', { class: 'set-row' }, h('label', {}, ''), h('button', { onclick: async () => { testOut.textContent = '測試中…'; await applySettings(f); const r = await xk.advisor.test(); testOut.textContent = r.ok ? `✅ ${r.text}` : `❌ ${r.error}`; } }, '測試金鑰'), testOut),

@@ -4,3 +4,9 @@
 *.png binary
 *.ico binary
 *.sh text eol=lf
+*.swift text eol=lf
+*.plist text eol=lf
+*.applescript text eol=lf
+ios/project.yml text eol=lf
+ios/** text eol=lf
+ios/**/*.png binary

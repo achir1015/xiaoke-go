@@ -335,7 +335,9 @@ export function search(opts) {
   const wrOf = (ch) => (ch.sb + K * allWr) / (ch.sn + K);
   const leadOf = (ch) => (ch.ss + K * allLead) / (ch.sn + K);
   const moves = kids.slice(0, 12).map((ch, k) => ({ i: ch.move, visits: ch.n - 2, winrate: wrOf(ch), scoreLead: leadOf(ch), order: k, prior: 0, pv: [ch.move] }));
-  const lead = kids.length ? leadOf(kids[0]) : allLead;
-  const rootWr = kids.length ? wrOf(kids[0]) : allWr;
+  // 整體勝率、目差：最佳著手的模擬夠多（9 路）就以它為準，不夠多（19 路）就以全部模擬的平均為主，兩次分析才不會差很多
+  const K2 = 200, best = kids[0];
+  const lead = best ? (best.ss + K2 * allLead) / (best.sn + K2) : allLead;
+  const rootWr = best ? (best.sb + K2 * allWr) / (best.sn + K2) : allWr;
   return { sims, moves, winrate: rootWr, scoreLead: lead, ownership, visits: sims };
 }
